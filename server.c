@@ -1,158 +1,153 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <Winsock2.h>
 #include "router.h"
 #include "router_manager.h"
+#include <arpa/inet.h>
+#include <errno.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
-#define MAX_THREADS 4  // Maximum number of worker threads
-#define MAX_QUEUE 10    // Maximum number of clients waiting in the task queue
+#define MAX_THREADS 4 // Maximum number of worker threads
+#define MAX_QUEUE 10  // Maximum number of clients waiting in the task queue
 
 typedef struct {
-    SOCKET socket;
-    struct sockaddr_in client_addr;
+  int socket;
+  struct sockaddr_in client_addr;
 } client_task;
 
 // Task queue for incoming client requests
 client_task task_queue[MAX_QUEUE];
 int queue_front = 0, queue_rear = 0;
-HANDLE queue_mutex, queue_not_empty, queue_not_full;
+pthread_mutex_t queue_mutex;
+sem_t queue_not_empty, queue_not_full;
 
 // Function to add a task to the queue
 void enqueue_task(client_task task) {
-    WaitForSingleObject(queue_not_full, INFINITE);
-    WaitForSingleObject(queue_mutex, INFINITE);
+  sem_wait(&queue_not_full);        // Wait until the queue is not full
+  pthread_mutex_lock(&queue_mutex); // Lock the queue
 
-    task_queue[queue_rear] = task;
-    queue_rear = (queue_rear + 1) % MAX_QUEUE;
+  task_queue[queue_rear] = task;
+  queue_rear = (queue_rear + 1) % MAX_QUEUE;
 
-    ReleaseMutex(queue_mutex);
-    ReleaseSemaphore(queue_not_empty, 1, NULL);
+  pthread_mutex_unlock(&queue_mutex); // Unlock the queue
+  sem_post(&queue_not_empty);         // Signal that the queue is not empty
 }
 
 // Function to get a task from the queue
 client_task dequeue_task() {
-    WaitForSingleObject(queue_not_empty, INFINITE);
-    WaitForSingleObject(queue_mutex, INFINITE);
+  sem_wait(&queue_not_empty);       // Wait until the queue is not empty
+  pthread_mutex_lock(&queue_mutex); // Lock the queue
 
-    client_task task = task_queue[queue_front];
-    queue_front = (queue_front + 1) % MAX_QUEUE;
+  client_task task = task_queue[queue_front];
+  queue_front = (queue_front + 1) % MAX_QUEUE;
 
-    ReleaseMutex(queue_mutex);
-    ReleaseSemaphore(queue_not_full, 1, NULL);
+  pthread_mutex_unlock(&queue_mutex); // Unlock the queue
+  sem_post(&queue_not_full);          // Signal that the queue is not full
 
-    return task;
+  return task;
 }
 
 // Function to handle communication with a client
-DWORD WINAPI handle_client(void* arg) {
-    while (1) {
-        // Get a task (client) from the queue
-        client_task task = dequeue_task();
+void *handle_client(void *arg) {
+  while (1) {
+    // Get a task (client) from the queue
+    client_task task = dequeue_task();
 
-        char buffer[BUFFER_SIZE] = {0};
-        ssize_t valread;
+    char buffer[BUFFER_SIZE] = {0};
+    ssize_t valread;
 
-        // Read data from the client (this would typically be an HTTP request)
-        valread = recv(task.socket, buffer, BUFFER_SIZE, 0);
-        if (valread > 0) {
-            printf("Client: %s\n", buffer);
-            // Pass the request to the router to handle it
-            handle_request(task.socket, buffer);
-            printf("Response sent to client.\n");
-        } else {
-            printf("Failed to read from client socket. Error: %d\n", WSAGetLastError());
-        }
-
-        // Close the socket after responding
-        closesocket(task.socket);
+    // Read data from the client (this would typically be an HTTP request)
+    valread = read(task.socket, buffer, BUFFER_SIZE);
+    if (valread > 0) {
+      printf("Client: %s\n", buffer);
+      // Pass the request to the router to handle it
+      handle_request(task.socket, buffer);
+      printf("Response sent to client.\n");
+    } else {
+      printf("Failed to read from client socket. Error: %d\n", errno);
     }
-    return 0;
+
+    // Close the socket after responding
+    close(task.socket);
+  }
+  return NULL;
 }
 
 int main() {
-    WSADATA wsa;
-    SOCKET server_fd, client_socket;
-    struct sockaddr_in server_addr, client_addr;
-    int addr_len = sizeof(client_addr);
+  int server_fd, client_socket;
+  struct sockaddr_in server_addr, client_addr;
+  socklen_t addr_len = sizeof(client_addr);
 
-    // Initialize Winsock
-    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
-        printf("WSAStartup failed. Error Code: %d\n", WSAGetLastError());
-        return 1;
-    }
+  // Create the server socket
+  if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+    perror("Socket creation failed");
+    return 1;
+  }
 
-    // Create the server socket
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET) {
-        printf("Socket creation failed. Error Code: %d\n", WSAGetLastError());
-        WSACleanup();
-        return 1;
-    }
+  // Prepare the server address structure
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_addr.s_addr = INADDR_ANY;
+  server_addr.sin_port = htons(PORT);
 
-    // Prepare the server address structure
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;
-    server_addr.sin_port = htons(PORT);
+  // Bind the server socket to the specified port
+  if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
+    perror("Bind failed");
+    close(server_fd);
+    return 1;
+  }
 
-    // Bind the server socket to the specified port
-    if (bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
-        printf("Bind failed. Error Code: %d\n", WSAGetLastError());
-        closesocket(server_fd);
-        WSACleanup();
-        return 1;
-    }
+  // Start listening for incoming connections
+  if (listen(server_fd, 3) == -1) {
+    perror("Listen failed");
+    close(server_fd);
+    return 1;
+  }
 
-    // Start listening for incoming connections
-    if (listen(server_fd, 3) == SOCKET_ERROR) {
-        printf("Listen failed. Error Code: %d\n", WSAGetLastError());
-        closesocket(server_fd);
-        WSACleanup();
-        return 1;
-    }
+  // Initialize routes
+  if (init_routes() != EXIT_SUCCESS) {
+    printf("Route initialization failed\n");
+    close(server_fd);
+    return 1;
+  }
 
-    // Initialize routes
-    if (init_routes() != EXIT_SUCCESS) {
-      printf("Route initialization failed\n");
-      closesocket(server_fd);
-      WSACleanup();
+  // Initialize mutex and semaphores
+  pthread_mutex_init(&queue_mutex, NULL);
+  sem_init(&queue_not_empty, 0, 0);
+  sem_init(&queue_not_full, 0, MAX_QUEUE);
+
+  // Create the worker threads (thread pool)
+  pthread_t thread_pool[MAX_THREADS];
+  for (int i = 0; i < MAX_THREADS; i++) {
+    pthread_create(&thread_pool[i], NULL, handle_client, NULL);
+  }
+
+  printf("Server listening on port %d\n", PORT);
+
+  // Main server loop
+  while (1) {
+    // Accept a new client connection
+    if ((client_socket = accept(server_fd, (struct sockaddr *)&client_addr, &addr_len)) == -1) {
+      perror("Accept failed");
+      close(server_fd);
       return 1;
     }
 
-    // Create mutexes and semaphores for synchronization
-    queue_mutex = CreateMutex(NULL, FALSE, NULL);
-    queue_not_empty = CreateSemaphore(NULL, 0, MAX_QUEUE, NULL);
-    queue_not_full = CreateSemaphore(NULL, MAX_QUEUE, MAX_QUEUE, NULL);
+    // Create a new client task and add it to the task queue
+    client_task task;
+    task.socket = client_socket;
+    task.client_addr = client_addr;
+    enqueue_task(task);
+  }
 
-    // Create the worker threads (thread pool)
-    HANDLE thread_pool[MAX_THREADS];
-    for (int i = 0; i < MAX_THREADS; i++) {
-        thread_pool[i] = CreateThread(NULL, 0, handle_client, NULL, 0, NULL);
-    }
+  // Clean up and close the server socket
+  close(server_fd);
+  pthread_mutex_destroy(&queue_mutex);
+  sem_destroy(&queue_not_empty);
+  sem_destroy(&queue_not_full);
 
-    printf("Server listening on port %d\n", PORT);
-
-    // Main server loop
-    while (1) {
-        // Accept a new client connection
-        if ((client_socket = accept(server_fd, (struct sockaddr*)&client_addr, &addr_len)) == INVALID_SOCKET) {
-            printf("Accept failed. Error Code: %d\n", WSAGetLastError());
-            closesocket(server_fd);
-            WSACleanup();
-            return 1;
-        }
-
-        // Create a new client task and add it to the task queue
-        client_task task;
-        task.socket = client_socket;
-        task.client_addr = client_addr;
-        enqueue_task(task);
-    }
-
-    // Clean up and close the server socket
-    closesocket(server_fd);
-    WSACleanup();
-
-    return EXIT_SUCCESS;
+  return EXIT_SUCCESS;
 }
