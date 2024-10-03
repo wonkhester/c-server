@@ -1,8 +1,8 @@
 # Compiler to use
 CC = gcc
 
-# Compiler flags to add (like warnings and debug symbols)
-CFLAGS = -Wall -g
+# Compiler flags
+CFLAGS = -Wall -g -arch x86_64 -arch arm64
 
 # List of source files to compile
 SRC = server.c router.c router_manager.c file_manager.c
