@@ -1,15 +1,8 @@
 # Compiler to use
 CC = gcc
 
-# Common compiler flags
+# Compiler flags
 CFLAGS = -Wall -g
-
-# Platform-specific flags
-UNAME_S := $(shell uname -s)
-ifeq ($(UNAME_S), Darwin)
-    # macOS-specific flags
-    CFLAGS += -arch x86_64 -arch arm64
-endif
 
 # List of source files to compile
 SRC = server.c router.c router_manager.c file_manager.c
