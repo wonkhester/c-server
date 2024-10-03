@@ -1,6 +1,6 @@
 # C-Server
 
-C-Server is a simple C web server application that can serve HTML files. It is a work in progress and may never be fully completed. The server is designed to run on Linux and macOS environments.
+C-Server is a simple C web server application that can serve HTML files. It is a work in progress and may never be fully completed. The server is designed to run on Linux environments.
 
 ## Features
 
@@ -36,14 +36,6 @@ sudo dnf install glibc-devel
 sudo dnf install gcc
 ```
 
-#### macOS compiler
-
-```bash
-brew install gcc
-```
-
-__Note:__ The C standard library should alaready be installed by default
-
 ### Installing make
 
 To build the project, you need the make utility:
@@ -60,12 +52,6 @@ sudo apt-get install make
 sudo dnf install make
 ```
 
-#### macOS make
-
-```bash
-brew install make
-```
-
 ### Installing the Formatter
 
 To ensure consistent code formatting, install `clang-format` on your system:
@@ -80,12 +66,6 @@ sudo apt-get install clang-format
 
 ```bash
 sudo sudo dnf install clang-format
-```
-
-#### macOS Formatter
-
-```bash
-sudo brew install clang-format
 ```
 
 ### Cloning the Repository
