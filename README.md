@@ -1,6 +1,6 @@
 # C-Server
 
-C-Server is a simple C web server application that can send HTML files. It's a work in progress and may never be finished. The server is designed to run on Linux and macOS environments.
+C-Server is a simple C web server application that can serve HTML files. It is a work in progress and may never be fully completed. The server is designed to run on Linux and macOS environments.
 
 ## Features
 
@@ -18,26 +18,74 @@ Make sure you have the following installed:
 - `make` utility for building the project
 - `clang-format` for code formatting
 
+### Installing the compiler
+
+To compile the program, you need to install the `C standard library` and `gcc` on your system:
+
+#### Ubuntu/Debian compiler
+
+```bash
+sudo apt-get install libc6-dev
+sudo apt-get install gcc
+```
+
+#### Fedora compiler
+
+```bash
+sudo dnf install glibc-devel
+sudo dnf install gcc
+```
+
+#### macOS compiler
+
+```bash
+brew install gcc
+```
+
+__Note:__ The C standard library should alaready be installed by default
+
+### Installing make
+
+To build the project, you need the make utility:
+
+#### Ubuntu/Debian make
+
+```bash
+sudo apt-get install make
+```
+
+#### Fedora make
+
+```bash
+sudo dnf install make
+```
+
+#### macOS make
+
+```bash
+brew install make
+```
+
 ### Installing the Formatter
 
 To ensure consistent code formatting, install `clang-format` on your system:
 
-#### Ubuntu/Debian
+#### Ubuntu/Debian Formatter
 
 ```bash
 sudo apt-get install clang-format
 ```
 
-#### Fedora
+#### Fedora Formatter
 
 ```bash
-sudo apt-get install clang-format
+sudo sudo dnf install clang-format
 ```
 
-#### macOS
+#### macOS Formatter
 
 ```bash
-sudo apt-get install clang-format
+sudo brew install clang-format
 ```
 
 ### Cloning the Repository
