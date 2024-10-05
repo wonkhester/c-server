@@ -4,14 +4,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-ParsedData init_parsed_data() {
-  ParsedData data;
+ParsedURLData init_parsed_data() {
+  ParsedURLData data;
   data.pairs = NULL;
   data.count = 0;
   return data;
 }
 
-void add_pair(ParsedData *data, const char *key, const char *value) {
+void add_pair(ParsedURLData *data, const char *key, const char *value) {
   data->pairs = realloc(data->pairs, (data->count + 1) * sizeof(KeyValuePair));
   if (data->pairs == NULL) {
     fprintf(stderr, "Failed to allocate memory for pairs.\n");
@@ -43,8 +43,8 @@ char *urldecode(const char *src) {
   return decoded;
 }
 
-ParsedData parse_request_body(const char *body) {
-  ParsedData data = init_parsed_data();
+ParsedURLData parse_url_encoded_body(const char *body) {
+  ParsedURLData data = init_parsed_data();
 
   char *body_copy = strdup(body);
   if (!body_copy) {
@@ -71,7 +71,7 @@ ParsedData parse_request_body(const char *body) {
   return data;
 }
 
-void free_parsed_data(ParsedData *data) {
+void free_parsed_url_data(ParsedURLData *data) {
   for (size_t i = 0; i < data->count; i++) {
     free(data->pairs[i].key);
     free(data->pairs[i].value);
@@ -79,15 +79,15 @@ void free_parsed_data(ParsedData *data) {
   free(data->pairs);
 }
 
-void print_parsed_data(const ParsedData *data) {
+void print_parsed_data(const ParsedURLData *data) {
   for (size_t i = 0; i < data->count; i++) {
     printf("%s: %s\n", data->pairs[i].key, data->pairs[i].value);
   }
 }
 
-char *get_parsed_data_key(const ParsedData *data, const char *key) {
+char *get_parsed_data_key(const ParsedURLData *data, const char *key) {
   if (data == NULL) {
-    printf("ParsedData is NULL\n");
+    printf("ParsedURLData is NULL\n");
     return NULL;
   }
 
@@ -97,4 +97,120 @@ char *get_parsed_data_key(const ParsedData *data, const char *key) {
     }
   }
   return NULL;
+}
+
+HTTP_Headers parse_http_request_headers(const char *headers) {
+  HTTP_Headers parsed_headers = {0};
+  char *headers_copy = strdup(headers);
+  char *line = strtok(headers_copy, "\r\n");
+
+  while (line) {
+    char *colon_pos = strchr(line, ':');
+    if (colon_pos) {
+      *colon_pos = '\0';
+      char *key = line;
+      char *value = colon_pos + 1;
+
+      while (*value == ' ')
+        value++;
+
+      if (strcmp(key, "Host") == 0) {
+        parsed_headers.host = strdup(value);
+      } else if (strcmp(key, "User-Agent") == 0) {
+        parsed_headers.user_agent = strdup(value);
+      } else if (strcmp(key, "Accept") == 0) {
+        parsed_headers.accept = strdup(value);
+      } else if (strcmp(key, "Accept-Language") == 0) {
+        parsed_headers.accept_language = strdup(value);
+      } else if (strcmp(key, "Accept-Charset") == 0) {
+        parsed_headers.accept_charset = strdup(value);
+      } else if (strcmp(key, "Connection") == 0) {
+        parsed_headers.connection = strdup(value);
+      }
+    }
+    line = strtok(NULL, "\r\n");
+  }
+
+  free(headers_copy);
+  return parsed_headers;
+}
+
+HTTP_Request parse_http_request(const char *request) {
+  HTTP_Request parsed_request = {0};
+  char *request_copy = strdup(request);
+
+  char *headers_end = strstr(request_copy, "\r\n\r\n");
+  if (!headers_end) {
+    fprintf(stderr, "Invalid request, no header-body separation found\n");
+    free(request_copy);
+    return parsed_request;
+  }
+
+  *headers_end = '\0';
+  char *body = headers_end + 4;
+
+  char *request_line = strtok(request_copy, "\r\n");
+  char *headers = strtok(NULL, "");
+
+  if (request_line) {
+    parsed_request.method = strdup(strtok(request_line, " "));
+    parsed_request.url = strdup(strtok(NULL, " "));
+    parsed_request.protocol = strdup(strtok(NULL, " "));
+  }
+
+  if (headers) {
+    parsed_request.headers = parse_http_request_headers(headers);
+  }
+
+  if (strcmp(parsed_request.method, "POST") == 0 || strcmp(parsed_request.method, "PUT") == 0) {
+    if (body && strlen(body) > 0) {
+      parsed_request.body = strdup(body);
+    }
+  }
+
+  free(request_copy);
+  return parsed_request;
+}
+
+void free_request(HTTP_Request *request) {
+  free(request->method);
+  free(request->url);
+  free(request->protocol);
+  free(request->body);
+  free(request->headers.host);
+  free(request->headers.user_agent);
+  free(request->headers.accept);
+  free(request->headers.accept_language);
+  free(request->headers.accept_charset);
+  free(request->headers.connection);
+}
+
+void print_HTTP_Request(HTTP_Request *request) {
+  if (request == NULL)
+    return;
+
+  printf("Method: %s\n", request->method ? request->method : "(null)");
+  printf("URL: %s\n", request->url ? request->url : "(null)");
+  printf("Protocol: %s\n", request->protocol ? request->protocol : "(null)");
+  printf("Body: %s\n", request->body ? request->body : "(null)");
+  printf("Host: %s\n", request->headers.host ? request->headers.host : "(null)");
+  printf("User-Agent: %s\n", request->headers.user_agent ? request->headers.user_agent : "(null)");
+  printf("Accept: %s\n", request->headers.accept ? request->headers.accept : "(null)");
+  printf("Accept-Language: %s\n", request->headers.accept_language ? request->headers.accept_language : "(null)");
+  printf("Accept-Charset: %s\n", request->headers.accept_charset ? request->headers.accept_charset : "(null)");
+  printf("Connection: %s\n", request->headers.connection ? request->headers.connection : "(null)");
+}
+
+void handle_http_request(int client_socket, const char *request) {
+  HTTP_Request parsed_request = parse_http_request(request);
+
+  RouteHandler handler = get_route_handler(parsed_request.method, parsed_request.url);
+
+  if (handler) {
+    handler(client_socket, parsed_request);
+  } else {
+    handle_not_found(client_socket, parsed_request);
+  }
+
+  free_request(&parsed_request);
 }

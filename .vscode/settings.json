@@ -6,6 +6,7 @@
     "complex.h": "c",
     "router_manager.h": "c",
     "string.h": "c",
-    "typeinfo": "c"
+    "typeinfo": "c",
+    "request_manager.h": "c"
   }
 }

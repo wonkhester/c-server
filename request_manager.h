@@ -1,7 +1,6 @@
 #ifndef REQUEST_MANAGER_H
 #define REQUEST_MANAGER_H
 
-#include "router_manager.h"
 #include <string.h>
 
 typedef struct KeyValuePair {
@@ -9,23 +8,42 @@ typedef struct KeyValuePair {
   char *value;
 } KeyValuePair;
 
-typedef struct ParsedData {
+typedef struct ParsedURLData {
   KeyValuePair *pairs;
   size_t count;
-} ParsedData;
+} ParsedURLData;
 
-ParsedData init_parsed_data();
+typedef struct {
+  char *host;
+  char *user_agent;
+  char *accept;
+  char *accept_language;
+  char *accept_charset;
+  char *connection;
+} HTTP_Headers;
 
-void add_pair(ParsedData *data, const char *key, const char *value);
+typedef struct {
+  char *method;
+  char *url;
+  char *protocol;
+  HTTP_Headers headers;
+  char *body;
+} HTTP_Request;
 
-ParsedData parse_request_body(const char *body);
+ParsedURLData init_parsed_data();
 
-void free_parsed_data(ParsedData *data);
+void add_pair(ParsedURLData *data, const char *key, const char *value);
 
-void print_parsed_data(const ParsedData *data);
+ParsedURLData parse_url_encoded_body(const char *body);
 
-char *get_parsed_data_key(const ParsedData *data, const char *key);
+void free_parsed_url_data(ParsedURLData *data);
 
-void handle_submit(int client_socket, HTTP_REQUEST request);
+void print_parsed_data(const ParsedURLData *data);
+
+char *get_parsed_data_key(const ParsedURLData *data, const char *key);
+
+void handle_submit(int client_socket, HTTP_Request request);
+
+void handle_http_request(int client_socket, const char *request);
 
 #endif

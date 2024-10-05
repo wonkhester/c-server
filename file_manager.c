@@ -1,4 +1,5 @@
 #include "file_manager.h"
+#include "request_manager.h"
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
