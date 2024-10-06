@@ -1,6 +1,8 @@
+#include "file_manager.h"
 #include "request_manager.h"
 #include "router.h"
 #include "router_manager.h"
+#include "utils/string_array.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <pthread.h>
@@ -117,6 +119,15 @@ int main() {
     close(server_fd);
     return EXIT_FAILURE;
   }
+
+  // Initialize static files
+  if (init_static_web_files() != EXIT_SUCCESS) {
+    printf("Static files initialization failed\n");
+    close(server_fd);
+    return EXIT_FAILURE;
+  }
+
+  print_string_array(get_static_web_files());
 
   // Initialize routes
   if (init_routes() != EXIT_SUCCESS) {
