@@ -5,13 +5,13 @@ CC = gcc
 CFLAGS = -Wall -g
 
 # List of source files to compile
-SRC = server.c router.c router_manager.c request_manager.c response_manager.c file_manager.c
+SRC = server.c router.c router_manager.c request_manager.c response_manager.c file_manager.c utils/string_array.c
 
 # Output executable name
 OUT = web_server
 
 # Files to be formatted
-FORMAT_SRC = $(SRC) router.h router_manager.h request_manager.h response_manager.h file_manager.h
+FORMAT_SRC = $(SRC) router.h router_manager.h request_manager.h response_manager.h file_manager.h utils/string_array.h
 
 # Default target (format code, then build)
 all: format $(OUT)

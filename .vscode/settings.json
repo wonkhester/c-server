@@ -7,6 +7,8 @@
     "router_manager.h": "c",
     "string.h": "c",
     "typeinfo": "c",
-    "request_manager.h": "c"
+    "request_manager.h": "c",
+    "file_manager.h": "c",
+    "string_array.h": "c"
   }
 }
