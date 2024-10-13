@@ -41,12 +41,10 @@ StringArray merge_to_new_string_arrays(const StringArray *arr1, const StringArra
   StringArray result;
   init_string_array(&result, arr1->count + arr2->count);
 
-  // Copy strings from the first array
   for (size_t i = 0; i < arr1->count; i++) {
     add_to_string_array(&result, arr1->array[i]);
   }
 
-  // Copy strings from the second array
   for (size_t i = 0; i < arr2->count; i++) {
     add_to_string_array(&result, arr2->array[i]);
   }

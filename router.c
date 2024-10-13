@@ -65,6 +65,5 @@ int init_routes() {
   add_route("GET", "/about", handle_about);
   add_route("POST", "/submit", handle_submit);
   add_route("PUT", "/update", handle_update);
-  add_route("*", "*", handle_root);
   return EXIT_SUCCESS;
 }

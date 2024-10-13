@@ -68,15 +68,6 @@ sudo apt-get install clang-format
 sudo sudo dnf install clang-format
 ```
 
-### Cloning the Repository
-
-#### Clone the repository to your local machine
-
-```bash
-git clone https://github.com/yourusername/c-server.git
-cd c-server
-```
-
 ### Building the Project
 
 #### To compile the project, navigate to the project directory and run

@@ -16,6 +16,8 @@ void add_route(const char *method, const char *path, RouteHandler handler);
 
 RouteHandler get_route_handler(const char *method, const char *path);
 
+void handle_no_route(int client_socket, HTTP_Request request);
+
 void handle_not_found(int client_socket, HTTP_Request request);
 
 #endif

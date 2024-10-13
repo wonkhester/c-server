@@ -13,14 +13,14 @@ StringArray *static_web_files;
 StringArray *get_static_web_files() { return static_web_files; }
 
 char *read_html_file(const char *filename) {
-  size_t path_length = strlen(WEB_PRIVATE_PATH) + strlen(filename) + 1;
+  size_t path_length = strlen(WEB_PRIVATE_PATH) + strlen(filename) + 2;
   char *filepath = (char *)malloc(path_length);
   if (!filepath) {
     fprintf(stderr, "Failed to allocate memory for file path.\n");
     return NULL;
   }
 
-  snprintf(filepath, path_length, "%s%s", WEB_PRIVATE_PATH, filename);
+  snprintf(filepath, path_length, "%s/%s", WEB_PRIVATE_PATH, filename);
 
   FILE *file = fopen(filepath, "r");
   if (!file) {
@@ -49,6 +49,62 @@ char *read_html_file(const char *filename) {
   return content;
 }
 
+long get_file_size(const char *filepath) {
+  struct stat file_stat;
+
+  if (stat(filepath, &file_stat) != 0) {
+    perror("Failed to get file status");
+    return -1;
+  }
+
+  return file_stat.st_size;
+}
+
+int is_text_file(const char *filepath) {
+  const char *ext = strrchr(filepath, '.');
+  if (ext) {
+    return (strcmp(ext, ".txt") == 0);
+  }
+  return 0;
+}
+
+char *read_file(const char *filepath) {
+  int is_binary = !is_text_file(filepath);
+  long file_size = get_file_size(filepath);
+
+  if (file_size == -1) {
+    return NULL;
+  }
+
+  FILE *file = fopen(filepath, "rb");
+  if (!file) {
+    fprintf(stderr, "Failed to open file '%s': %s\n", filepath, strerror(errno));
+    return NULL;
+  }
+
+  char *content = (char *)malloc(file_size + (is_binary ? 0 : 1));
+  if (!content) {
+    fprintf(stderr, "Failed to allocate memory for file content.\n");
+    fclose(file);
+    return NULL;
+  }
+
+  size_t bytes_read = fread(content, 1, file_size, file);
+  if (bytes_read != file_size) {
+    fprintf(stderr, "Failed to read the entire file. Expected: %ld, Got: %zu\n", file_size, bytes_read);
+    free(content);
+    fclose(file);
+    return NULL;
+  }
+
+  if (!is_binary) {
+    content[file_size] = '\0';
+  }
+
+  fclose(file);
+  return content;
+}
+
 StringArray *get_files_in_directory(const char *directory_path) {
   StringArray *file_names = (StringArray *)malloc(sizeof(StringArray));
   if (!file_names) {
@@ -69,7 +125,6 @@ StringArray *get_files_in_directory(const char *directory_path) {
   }
 
   while ((dp = readdir(dir)) != NULL) {
-    // Skip "." and ".."
     if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0) {
       continue;
     }
@@ -82,7 +137,6 @@ StringArray *get_files_in_directory(const char *directory_path) {
       continue;
     }
 
-    // Skip directories
     if (S_ISDIR(path_stat.st_mode)) {
       continue;
     }
@@ -114,7 +168,6 @@ StringArray *get_folders_in_directory(const char *directory_path) {
   }
 
   while ((dp = readdir(dir)) != NULL) {
-    // Skip "." and ".."
     if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0) {
       continue;
     }
@@ -127,7 +180,6 @@ StringArray *get_folders_in_directory(const char *directory_path) {
       continue;
     }
 
-    // Skip files
     if (!S_ISDIR(path_stat.st_mode)) {
       continue;
     }
@@ -153,6 +205,8 @@ int init_static_web_files() {
     return EXIT_FAILURE;
   }
 
+  print_string_array(get_static_web_files());
+
   return EXIT_SUCCESS;
 }
 
@@ -177,12 +231,9 @@ int *get_all_nested_files_in_directory(StringArray *files, const char *directory
   return EXIT_SUCCESS;
 }
 
-int file_exists_in_dynamic(const char *filename) {
-  char path[1000];
-  snprintf(path, sizeof(path), "%s/%s", WEB_DYNAMIC_PATH, filename);
-
+int file_exists_in_dynamic(const char *filepath) {
   struct stat buffer;
-  return (stat(path, &buffer) == 0);
+  return (stat(filepath, &buffer) == 0);
 }
 
 int file_exists_in_static(const char *filename) {

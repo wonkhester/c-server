@@ -1,4 +1,5 @@
 #include "router_manager.h"
+#include "file_manager.h"
 #include "request_manager.h"
 #include "response_manager.h"
 #include <stdio.h>
@@ -34,6 +35,27 @@ RouteHandler get_route_handler(const char *method, const char *path) {
     }
   }
   return NULL;
+}
+
+void handle_no_route(int client_socket, HTTP_Request request) {
+  char static_file_path[1024];
+  char dynamic_file_path[1024];
+
+  if (request.url[0] == '/') {
+    snprintf(static_file_path, sizeof(static_file_path), "%s%s", WEB_STATIC_PATH, request.url);
+    snprintf(dynamic_file_path, sizeof(dynamic_file_path), "%s%s", WEB_DYNAMIC_PATH, request.url);
+  } else {
+    snprintf(static_file_path, sizeof(static_file_path), "%s/%s", WEB_STATIC_PATH, request.url);
+    snprintf(dynamic_file_path, sizeof(dynamic_file_path), "%s/%s", WEB_DYNAMIC_PATH, request.url);
+  }
+
+  if (file_exists_in_static(static_file_path)) {
+    send_http_file_response(client_socket, request, static_file_path);
+  } else if (file_exists_in_dynamic(dynamic_file_path)) {
+    send_http_file_response(client_socket, request, dynamic_file_path);
+  } else {
+    handle_not_found(client_socket, request);
+  }
 }
 
 void handle_not_found(int client_socket, HTTP_Request request) {

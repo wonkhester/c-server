@@ -205,11 +205,10 @@ void handle_http_request(int client_socket, const char *request) {
   HTTP_Request parsed_request = parse_http_request(request);
 
   RouteHandler handler = get_route_handler(parsed_request.method, parsed_request.url);
-
   if (handler) {
     handler(client_socket, parsed_request);
   } else {
-    handle_not_found(client_socket, parsed_request);
+    handle_no_route(client_socket, parsed_request);
   }
 
   free_request(&parsed_request);
